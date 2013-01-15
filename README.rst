@@ -24,8 +24,8 @@ Authorizes a signed request passed to varnish.
 FUNCTIONS
 =========
 
-
------
+sigstring
+---------
 
 Prototype
         ::
