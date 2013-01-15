@@ -1,9 +1,9 @@
 ============
-vmod_example
+vmod_sigauth
 ============
 
 ----------------------
-Varnish Example Module
+Varnish Sigauth Module
 ----------------------
 
 :Author: Brian Wight
