@@ -32,19 +32,19 @@ vmod_sigstring(struct sess *sp,
 	buf = calloc(1, len + 1);
 
 	strcat(buf, method);
-	strcat(buf, "\\n");
+	strcat(buf, "\n");
 
 	strcat(buf, url);
-	strcat(buf, "\\n");
+	strcat(buf, "\n");
 
 	if(date) strcat(buf, date);
-	strcat(buf, "\\n");
+	strcat(buf, "\n");
 
 	if(host) strcat(buf, host);
-	strcat(buf, "\\n");
+	strcat(buf, "\n");
 
 	if(host) strcat(buf, body);
-	strcat(buf, "\\n");
+	strcat(buf, "\n");
 
 	return(buf);
 }
