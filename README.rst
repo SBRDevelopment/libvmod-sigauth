@@ -6,27 +6,25 @@ vmod_example
 Varnish Example Module
 ----------------------
 
-:Author: Martin Blix Grydeland
-:Date: 2011-05-26
+:Author: Brian Wight
+:Date: 2013-01-15
 :Version: 1.0
 :Manual section: 3
 
 SYNOPSIS
 ========
 
-import example;
+import sigauth;
 
 DESCRIPTION
 ===========
 
-Example Varnish vmod demonstrating how to write an out-of-tree Varnish vmod.
-
-Implements the traditional Hello World as a vmod.
+Authorizes a signed request passed to varnish.  
 
 FUNCTIONS
 =========
 
-hello
+
 -----
 
 Prototype
