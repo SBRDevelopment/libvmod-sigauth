@@ -4,7 +4,7 @@ SUBDIRS = src
 
 EXTRA_DIST = README.rst
 
-dist_man_MANS = vmod_example.3
+dist_man_MANS = vmod_sigauth.3
 MAINTAINERCLEANFILES = $(dist_man_MANS)
 
 vmod_example.3: README.rst
