@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <string.h>
 
 #include "vrt.h"
 #include "bin/varnishd/cache.h"
@@ -12,14 +13,34 @@ init_function(struct vmod_priv *priv, const struct VCL_conf *conf)
 }
 
 const char *
-vmod_sigstring(struct sess *sp, const char *name,...)
-{
-	va_list ap;
-	char *p;
+vmod_sigstring(struct sess *sp,
+		const char *method,
+		const char *url,
+		const char *date,
+		const char *host
+){
+	int len = 4;
+	char *buf;
 
-	va_start(ap, name);
-	p = VRT_String(sp->wrk->ws, NULL, name, ap);
-	va_end(ap);
+	len += strlen(method);
+	len += strlen(url);
 
-	return (p);
+	if(date) len += strlen(date);
+	if(host) len += strlen(host);
+
+	buf = calloc(1, len + 1);
+
+	strcat(buf, method);
+	strcat(buf, "\n");
+
+	strcat(buf, url);
+	strcat(buf, "\n");
+
+	if(date) strcat(buf, date);
+	strcat(buf, "\n");
+
+	if(host) strcat(buf, host);
+	strcat(buf, "\n");
+
+	return(buf);
 }
