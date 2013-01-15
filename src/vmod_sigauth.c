@@ -17,11 +17,14 @@ vmod_sigstring(struct sess *sp, const char *name)
   char *p;
   unsigned u, v;
 
+  char *host = VRT_GetHdr(sp, HDR_REQ, "\030Host:");
+  char *date = VRT_GetHdr(sp, HDR_REQ, "\030Date:");
+
   u = WS_Reserve(sp->wrk->ws, 0); /* Reserve some work space */
   p = sp->wrk->ws->f;  /* Front of workspace area */
-  v = snprintf(p, u, "Hello, %s", name);
+  v = snprintf(p, u, "%s\n%s", host, date);
   v++;
-  
+
   if (v > u) {
   /* No space, reset and leave */
     WS_Release(sp->wrk->ws, 0);

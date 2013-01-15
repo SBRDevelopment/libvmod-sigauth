@@ -6,17 +6,17 @@ server s1 {
 } -start
 
 varnish v1 -vcl+backend {
-	import sigauth from "${vmod_topbuild}/src/.libs/libvmod_sigauth.so";
+        import sigauth from "${vmod_topbuild}/src/.libs/libvmod_sigauth.so";
 
-	sub vcl_deliver {
-		set resp.http.sigstring = sigauth.sigstring("Testing");
-	}
+        sub vcl_deliver {
+                set resp.http.sigstring = sigauth.sigstring("Testing");
+        }
 } -start
 
 client c1 {
-	txreq -url "/"
-	rxresp
-	expect resp.http.sigstring == "Testing\n"
+	txreq -url "/" -hdr "Date: 2013-01-15:00:00:00" -hdr "Host: api.sbrfeeds.com"
+        rxresp
+	expect resp.http.sigstring == "2013-01-15:00:00:00\napi.sbrfeeds.com"
 }
 
 client c1 -run
