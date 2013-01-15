@@ -9,14 +9,14 @@ varnish v1 -vcl+backend {
 	import sigauth from "${vmod_topbuild}/src/.libs/libvmod_sigauth.so";
 
 	sub vcl_deliver {
-		set resp.http.sigstring = sigauth.sigstring();
+		set resp.http.sigstring = sigauth.sigstring("Testing");
 	}
 } -start
 
 client c1 {
 	txreq -url "/"
 	rxresp
-	expect resp.http.sigstring == "Hello, World"
+	expect resp.http.sigstring == "Testing\n"
 }
 
 client c1 -run
