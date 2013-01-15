@@ -22,7 +22,7 @@ vmod_sigstring(struct sess *sp, const char *name)
 
   u = WS_Reserve(sp->wrk->ws, 0); /* Reserve some work space */
   p = sp->wrk->ws->f;  /* Front of workspace area */
-  v = snprintf(p, u, "%s\n%s", "2013-01-15T00:00:00", "api.sbrfeeds.com");
+  v = snprintf(p, u, "%s %s", "2013-01-15T00:00:00", "api.sbrfeeds.com");
   v++;
 
   if (v > u) {
