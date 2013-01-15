@@ -9,7 +9,7 @@ varnish v1 -vcl+backend {
         import sigauth from "${vmod_topbuild}/src/.libs/libvmod_sigauth.so";
 
         sub vcl_deliver {
-                set resp.http.sigstring = sigauth.sigstring(req.request, req.url, req.http.date, req.http.host, "{"json":"test"}");
+                set resp.http.sigstring = sigauth.sigstring(req.request, req.url, req.http.date, req.http.host, "{\"json\":\"test\"}");
         }
 } -start
 
