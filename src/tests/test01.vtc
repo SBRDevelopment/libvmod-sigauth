@@ -14,9 +14,9 @@ varnish v1 -vcl+backend {
 } -start
 
 client c1 {
-	txreq -url "/" -hdr "Date: 2013-01-15:00:00:00" -hdr "Host: api.sbrfeeds.com"
+	txreq -url "/" -hdr "Date: 2013-01-15T00:00:00" -hdr "Host: api.sbrfeeds.com"
         rxresp
-	expect resp.http.sigstring == "2013-01-15:00:00:00\napi.sbrfeeds.com"
+	expect resp.http.sigstring == "2013-01-15T00:00:00\napi.sbrfeeds.com"
 }
 
 client c1 -run
