@@ -3,7 +3,7 @@ INCLUDES = -I$(VARNISHSRC)/include -I$(VARNISHSRC)
 vmoddir = $(VMODDIR)
 vmod_LTLIBRARIES = libvmod_sigauth.la
 
-libvmod_sigauth_la_LDFLAGS = -module -export-dynamic -avoid-version
+libvmod_sigauth_la_LDFLAGS = -module -export-dynamic -avoid-version -lmhash
 
 libvmod_sigauth_la_SOURCES = \
 	vcc_if.c \
