@@ -1,10 +1,18 @@
 #include <stdlib.h>
-#include <string.h>
+#include <stdarg.h>
+#include <stdio.h>
+
+/*
+ * mhash.h has a habit of pulling in assert(). Let's hope it's a define,
+ * and that we can undef it, since Varnish has a better one.
+ */
+#include <mhash.h>
+#ifdef assert
+#	undef assert
+#endif
 
 #include "vrt.h"
 #include "bin/varnishd/cache.h"
-
-#include "vcc_if.h"
 
 int
 init_function(struct vmod_priv *priv, const struct VCL_conf *conf)
@@ -13,14 +21,51 @@ init_function(struct vmod_priv *priv, const struct VCL_conf *conf)
 }
 
 const char *
+hmac_sha1(struct sess *sp, const char *key, const char *msg)
+{
+	hashid hash = MHASH_SHA1;
+	size_t maclen = mhash_get_hash_pblock(hash);
+	size_t blocksize = mhash_get_block_size(hash);
+	unsigned char mac[blocksize];
+	unsigned char *data;
+	unsigned char *dataptr;
+	int j;
+	MHASH td;
+
+	assert(msg);
+	assert(key);
+	CHECK_OBJ_NOTNULL(sp, SESS_MAGIC);
+	CHECK_OBJ_NOTNULL(sp->ws, WS_MAGIC);
+
+	td = mhash_hmac_init(hash, (void *) key, strlen(key), mhash_get_hash_pblock(hash));
+	mhash(td, msg, strlen(msg));
+	mhash_hmac_deinit(td,mac);
+
+	data = WS_Alloc(sp->ws, blocksize + 1); // '\0'
+	if (data == NULL)
+		return NULL;
+	dataptr = data;
+
+	for (j = 0; j < blocksize; j++) {
+		sprintf(dataptr,"%u", mac[j]);
+		dataptr++;
+		assert((dataptr-data)<(blocksize + 1));
+	}
+	*dataptr = '\0';
+	return data;
+}
+
+const char *
 vmod_sigstring(struct sess *sp,
 		const char *method,
 		const char *url,
 		const char *date,
 		const char *host,
-		const char *body
+		const char *body,
+		const char *secret
 ){
 	int len = 10;
+	const char *digest;
 	char *buf;
 
 	len += strlen(method);
@@ -43,8 +88,8 @@ vmod_sigstring(struct sess *sp,
 	if(host) strcat(buf, host);
 	strcat(buf, "\n");
 
-	if(host) strcat(buf, body);
+	if(body) strcat(buf, body);
 	strcat(buf, "\n");
 
-	return(buf);
+	return hmac_sha1(sp, secret, buf);
 }
