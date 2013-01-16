@@ -23,35 +23,27 @@ init_function(struct vmod_priv *priv, const struct VCL_conf *conf)
 const char *
 hmac_sha1(struct sess *sp, const char *key, const char *msg)
 {
+	MHASH td;
 	hashid hash = MHASH_SHA1;
 	size_t maclen = mhash_get_hash_pblock(hash);
 	size_t blocksize = mhash_get_block_size(hash);
 	unsigned char mac[blocksize];
 	unsigned char *data;
-	unsigned char *dataptr;
 	int j;
-	MHASH td;
 
-	assert(msg);
-	assert(key);
-	CHECK_OBJ_NOTNULL(sp, SESS_MAGIC);
-	CHECK_OBJ_NOTNULL(sp->ws, WS_MAGIC);
-
-	td = mhash_hmac_init(hash, (void *) key, strlen(key), mhash_get_hash_pblock(hash));
+	td = mhash_hmac_init(hash, (void *)key, strlen(key), mhash_get_hash_pblock(hash));
 	mhash(td, msg, strlen(msg));
 	mhash_hmac_deinit(td,mac);
 
-	data = WS_Alloc(sp->ws, blocksize + 1); // '\0'
+	data = WS_Alloc(sp->ws, blocksize+1); // '\0'
 	if (data == NULL)
 		return NULL;
-	dataptr = data;
 
 	for (j = 0; j < blocksize; j++) {
-		sprintf(dataptr,"%u", mac[j]);
-		dataptr++;
-		assert((dataptr-data)<(blocksize + 1));
+		data[j] = (unsigned char)mac[j];
 	}
-	*dataptr = '\0';
+	data[blocksize+1] = '\0';
+
 	return data;
 }
 
@@ -90,6 +82,7 @@ vmod_sigstring(struct sess *sp,
 
 	if(body) strcat(buf, body);
 	strcat(buf, "\n");
+
 
 	return hmac_sha1(sp, secret, buf);
 }
