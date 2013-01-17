@@ -14,7 +14,7 @@
 #include "vrt.h"
 #include "bin/varnishd/cache.h"
 
-#include "vcc.if.h"
+#include "vcc_if.h"
 #include "config.h"
 
 int
