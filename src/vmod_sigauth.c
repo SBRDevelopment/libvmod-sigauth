@@ -73,7 +73,7 @@ append_header_name(struct sess *sp, const struct http *hp, char *p, unsigned u) 
 
 	assert(hdr.b[l] == ':');
 
-	return sprintf(p, "%.*s", l, hdr->b);
+	return sprintf(p, "%.*s", l, hdr.b);
 }
 
 const char *
