@@ -14,6 +14,9 @@
 #include "vrt.h"
 #include "bin/varnishd/cache.h"
 
+#include "vcc.if.h"
+#include "config.h"
+
 int
 init_function(struct vmod_priv *priv, const struct VCL_conf *conf)
 {
@@ -29,7 +32,6 @@ hmac_sha1(struct sess *sp, const char *key, const char *msg)
 	size_t blocksize = mhash_get_block_size(hash);
 	unsigned char mac[blocksize];
 	unsigned char *data;
-	int j;
 
 	td = mhash_hmac_init(hash, (void *)key, strlen(key), mhash_get_hash_pblock(hash));
 	mhash(td, msg, strlen(msg));
@@ -39,7 +41,7 @@ hmac_sha1(struct sess *sp, const char *key, const char *msg)
 	if (data == NULL)
 		return NULL;
 
-	for (j = 0; j < blocksize; j++) {
+	for (int j = 0; j < blocksize; j++) {
 		data[j] = (unsigned char)mac[j];
 	}
 	data[blocksize+1] = '\0';
@@ -47,42 +49,68 @@ hmac_sha1(struct sess *sp, const char *key, const char *msg)
 	return data;
 }
 
+long
+append_header_name(struct sess *sp, const struct http *hp, char *p, unsigned u) {
+
+	unsigned l;
+	char *c;
+	txt *hdr;
+
+	assert(hp);
+	Tcheck(hp->hd[u]);
+
+	hdr = hp->hd[u];
+
+	if (hdr.b == NULL)
+		return 0;
+
+	for(c = hdr->b; c < hdr->e; c++) {
+		if(c[0] == ':') {
+			l = c - hdr->b;
+			break;
+		}
+	}
+
+	assert(hdr.b[l] == ':');
+
+	return sprintf(p, "%.*s", l, hdr->b);
+}
+
+const char *
+get_headers(struct sess *sp, const struct http *hp) {
+
+	int u, v;
+	unsigned i;
+	char *p;
+
+	u = WS_Reserve(sp->wrk->ws, 0);
+	p = sp->wrk->ws->f;
+
+	for (i = HTTP_HDR_FIRST; i < sp->http->nhd; i++) {
+		v += append_header_name(sp, p, i);
+	}
+	v++;
+
+	if(v > u) {
+		// No space, release memory and leave
+		WS_Release(sp->wrk->ws, 0);
+		return (NULL);
+	}
+
+	// Release unused memory
+	WS_Release(sp->wrk->ws, v);
+	return (p);
+}
+
 const char *
 vmod_sigstring(struct sess *sp,
-		const char *method,
-		const char *url,
-		const char *date,
-		const char *host,
-		const char *body,
+
 		const char *secret
 ){
-	int len = 10;
-	const char *digest;
-	char *buf;
+	const char *p;
 
-	len += strlen(method);
-	len += strlen(url);
+	p = get_headers(sp);
 
-	if(date) len += strlen(date);
-	if(host) len += strlen(host);
-
-	buf = calloc(1, len + 1);
-
-	strcat(buf, method);
-	strcat(buf, "\n");
-
-	strcat(buf, url);
-	strcat(buf, "\n");
-
-	if(date) strcat(buf, date);
-	strcat(buf, "\n");
-
-	if(host) strcat(buf, host);
-	strcat(buf, "\n");
-
-	if(body) strcat(buf, body);
-	strcat(buf, "\n");
-
-
-	return hmac_sha1(sp, secret, buf);
+	return (p);
+	//return hmac_sha1(sp, secret, buf);
 }
