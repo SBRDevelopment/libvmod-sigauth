@@ -86,8 +86,8 @@ get_headers(struct sess *sp, const struct http *hp) {
 	u = WS_Reserve(sp->wrk->ws, 0);
 	p = sp->wrk->ws->f;
 
-	for (i = HTTP_HDR_FIRST; i < sp->http->nhd; i++) {
-		v += append_header_name(sp, p, i);
+	for (i = HTTP_HDR_FIRST; i < hp->nhd; i++) {
+		v += append_header_name(sp, hp, p, i);
 	}
 	v++;
 
