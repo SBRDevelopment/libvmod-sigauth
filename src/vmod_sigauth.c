@@ -64,9 +64,9 @@ append_header_name(struct sess *sp, const struct http *hp, char *p, unsigned u) 
 	if (hdr.b == NULL)
 		return 0;
 
-	for(c = hdr->b; c < hdr->e; c++) {
+	for(c = hdr.b; c < hdr.e; c++) {
 		if(c[0] == ':') {
-			l = c - hdr->b;
+			l = c - hdr.b;
 			break;
 		}
 	}
