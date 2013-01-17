@@ -54,7 +54,7 @@ append_header_name(struct sess *sp, const struct http *hp, char *p, unsigned u) 
 
 	unsigned l;
 	char *c;
-	txt *hdr;
+	txt hdr;
 
 	assert(hp);
 	Tcheck(hp->hd[u]);
