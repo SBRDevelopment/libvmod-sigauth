@@ -109,7 +109,7 @@ vmod_sigstring(struct sess *sp,
 ){
 	const char *p;
 
-	p = get_headers(sp);
+	p = get_headers(sp, sp->http);
 
 	return (p);
 	//return hmac_sha1(sp, secret, buf);
