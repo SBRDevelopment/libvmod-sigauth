@@ -1,3 +1,4 @@
 Module sigauth
 Init init_function
 Function STRING sigstring(STRING, STRING, STRING)
+Function INT isexpired(STRING)

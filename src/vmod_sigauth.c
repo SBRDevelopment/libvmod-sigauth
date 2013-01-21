@@ -1,7 +1,8 @@
 #include <stdlib.h>
 #include <stdarg.h>
-#include <stdio.h>
 #include <syslog.h>
+#include <stdio.h>
+#include <time.h>
 
 /*
  * mhash.h has a habit of pulling in assert(). Let's hope it's a define,
@@ -242,4 +243,18 @@ vmod_sigstring(struct sess *sp, const char *method, const char *uri, const char 
 	//syslog(LOG_INFO, "vmod_sigstring| hmac-sha1 %s", d);
 
 	return (d);
+}
+
+int
+vmod_isexpired(struct sess *sp, const char *expiration) {
+
+	long e;
+	time_t t;
+
+	AN(expiration);
+
+	e = atol(expiration);
+	time(&t);
+
+	return (long)t >= e;
 }

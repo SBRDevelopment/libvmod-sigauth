@@ -1,4 +1,4 @@
-varnishtest "Test sigauth vmod"
+varnishtest "Test sigauth hmac-method"
 
 		
 server s1 {
