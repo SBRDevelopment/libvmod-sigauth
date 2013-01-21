@@ -31,8 +31,18 @@ sizeofhdr(const struct http *hp) {
 	return hp->nhd - HTTP_HDR_FIRST;
 }
 
+
+char *
+tolowerhdr(char *h) {
+	int i;
+	for(i = 0; i < strlen(h); i++) {
+		*(h+i) = tolower(*(h+i));
+	}
+	return h;
+}
+
 int
-comparehdr (const void * a, const void * b)
+comparehdr (const void *a, const void *b)
 {
     /* Offset the headers to ignore the first length byte and compare the names */
     return strcasecmp (*(const char **) a + 1, *(const char **) b + 1);
@@ -111,7 +121,7 @@ get_headers(struct sess *sp, const struct http *hp) {
 	CHECK_OBJ_NOTNULL(hp, HTTP_MAGIC);
 
 	for (l = HTTP_HDR_FIRST, j = 0; l < hp->nhd; l++, j++) {
-		hdrl[j] = get_header_name(sp, hp, l);
+		hdrl[j] = tolowerhdr(get_header_name(sp, hp, l));
 	}
 
 	qsort (hdrl, h, sizeof(const char *), comparehdr);
@@ -124,9 +134,9 @@ get_headers(struct sess *sp, const struct http *hp) {
 	pptr = p;
 
 	for (i = 0; i < h; i++) {
-		if (strcasecmp(hdrl[i], "\005date:") == 0 ||
-			strcasecmp(hdrl[i], "\005host:") == 0 ||
-			strncasecmp(hdrl[i]+1, "x-sbr", 5) == 0) {
+		if (strcmp(hdrl[i], "\005date:") == 0 ||
+			strcmp(hdrl[i], "\005host:") == 0 ||
+			strncmp(hdrl[i]+1, "x-sbr", 5) == 0) {
 			pptr += sprintf(pptr, "%s %s\n", hdrl[i] + 1 /* skip length prefix */, VRT_GetHdr(sp, HDR_REQ, hdrl[i]));
 			//syslog(LOG_INFO, "get_headers| header %d: %s = %s\n", i, hdrl[i], VRT_GetHdr(sp, HDR_REQ, hdrl[i]));
 		}
@@ -215,34 +225,46 @@ get_body(struct sess *sp, char**body, int *ocl) {
 const char *
 vmod_sigstring(struct sess *sp, const char *method, const char *uri, const char *secret){
 
-	int cl;
+	int cl, l, u;
+	char *b;
 	char *body;
 
-	int ret = get_body(sp, &body, &cl);
 	const char *h = get_headers(sp, sp->http);
 
-	int len = strlen(method) + 1 + strlen(uri) + 1 + strlen(h) + strlen(body);
-	char *o = WS_Alloc(sp->ws, len);
+	u = WS_Reserve(sp->wrk->ws, 0);
+	b = sp->wrk->ws->f;
 
-	strcat(o, method);
-	strcat(o, "\n");
-	strcat(o, uri);
-	strcat(o, "\n");
-	strcat(o, h);
-	strcat(o, body);
+	if(strcmp(method,"POST") == 1 || strcmp(method,"PUT") == 1) {
+		syslog(LOG_INFO, "Request has body %s", method);
+		int ret = get_body(sp, &body, &cl);
+		l = sprintf(b, "%s\n%s\n%s\n%s", method, uri, h, body);
+	} else {
+		l = sprintf(b, "%s\n%s\n%s\n", method, uri, h);
+	}
 
-	const char *d = hmac_sha1(sp, secret, o);
+	assert(strlen(b) == l);
 
+	if (l > u) {
+		WS_Release(sp->wrk->ws, 0);
+		return NULL;
+	}
+
+	WS_Release(sp->wrk->ws, l+1);
+
+	syslog(LOG_INFO, "vmod_sigstring| secret %s", secret);
 	//syslog(LOG_INFO, "vmod_sigstring| method %s", method);
 	//syslog(LOG_INFO, "vmod_sigstring| uri %s", uri);
 	//syslog(LOG_INFO, "vmod_sigstring| headers %s", h);
-	//syslog(LOG_INFO, "vmod_sigstring| body %s", body);
 
-	//syslog(LOG_INFO, "bmod_sigstring| string_to_sign %s", o);
+	//if ( method == "POST" || method == "PUT" )
+    //	syslog(LOG_INFO, "vmod_sigstring| body %s", body);
+
+	syslog(LOG_INFO, "vmod_sigstring| string_to_sign (%d) %.*s", l, l, b);
 
 	//syslog(LOG_INFO, "vmod_sigstring| hmac-sha1 %s", d);
 
-	return (d);
+
+	return hmac_sha1(sp, secret, b);
 }
 
 int
