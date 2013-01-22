@@ -24,29 +24,42 @@ Authorizes a signed request passed to varnish.
 FUNCTIONS
 =========
 
-sigstring
+signature
 ---------
 
 Prototype
         ::
 
-                hello(STRING S)
+                signature(STRING METHOD, STRING URI, STRING SECRET_KEY)
 Return value
 	STRING
 Description
-	Returns "Hello, " prepended to S
+	Returns 	base64(hmac_sha1(canonicalized_request_data))
 Example
         ::
 
-                set resp.http.hello = example.hello("World");
+                set req.http.signature = sigauth.signature(req.request, req.url, "izY8UUW9rvumTICDWERMOvtrzlc4m2T0/QkSRHVY");
+
+isexpired
+---------
+
+Prototype
+		::
+		
+				isexpired(STRING EXPIRATION)
+Return value
+	STRING
+Description
+	Returns		NOW <= EXPIRATION
+Example
+				if(req.url ~ "^.*Expires=([\d^&]+)(.*)+$") {
+					if(sigauth.isexpired(regsub(req.url, ".*Expires=([\d]+)", "\1")) == 1) {
+						return (error);
+					}
+				}
 
 INSTALLATION
 ============
-
-This is an example skeleton for developing out-of-tree Varnish
-vmods. It implements the "Hello, World!" as a vmod callback. Not
-particularly useful in good hello world tradition, but demonstrates how
-to get the glue around a vmod working.
 
 The source tree is based on autotools to configure the building, and
 does also have the necessary bits in place to do functional unit tests
@@ -72,23 +85,22 @@ Make targets:
 
 In your VCL you could then use this vmod along the following lines::
         
-        import example;
+        import sigauth;
 
-        sub vcl_deliver {
-                # This sets resp.http.hello to "Hello, World"
-                set resp.http.hello = example.hello("World");
+        sub vcl_recv {
+                # This sets req.http.signature to a base64 encoded signature
+                set req.http.signature = sigauth.signature(req.request, req.url, "izY8UUW9rvumTICDWERMOvtrzlc4m2T0/QkSRHVY");
         }
 
 HISTORY
 =======
 
-This manual page was released as part of the libvmod-example package,
-demonstrating how to create an out-of-tree Varnish vmod.
+This manual page was released as part of the libvmod-sigauth package.
 
 COPYRIGHT
 =========
 
 This document is licensed under the same license as the
-libvmod-example project. See LICENSE for details.
+libvmod-sigauth project. See LICENSE for details.
 
-* Copyright (c) 2011 Varnish Software
+* Copyright (c) 2013 Brian Wight
