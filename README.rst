@@ -77,11 +77,9 @@ binary installation).
 
 This installation also requires mhash.
 
-On Debian/Centos distributions
-`sudo yum install libmcrypt-devel mhash-devel`
+On Debian/Centos distributions ``sudo yum install libmcrypt-devel mhash-devel``
 
-On Ubuntu distributions
-`sudo apt-get instsall libmhash-dev`
+On Ubuntu distributions ``sudo apt-get instsall libmhash-dev``
 
 
 1. `./autogen.sh`  (for git-installation)
