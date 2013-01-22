@@ -19,6 +19,11 @@
 #include "vcc_if.h"
 #include "config.h"
 
+
+const char *base64_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                           "abcdefghijklmnopqrstuvwxyz"
+                           "0123456789+/";
+
 int
 init_function(struct vmod_priv *priv, const struct VCL_conf *conf)
 {
@@ -49,7 +54,87 @@ comparehdr (const void *a, const void *b)
 }
 
 const char *
-hmac_sha1(struct sess *sp, const char *key, const char *msg)
+base64_encode(struct sess *sp, const unsigned char *in, size_t inlen) {
+
+	unsigned outlenorig, outlen;
+	char *out, *outb;
+	unsigned char tmp[3], idx;
+
+	CHECK_OBJ_NOTNULL(sp, SESS_MAGIC);
+	AN(in);
+
+	outlen = outlenorig = WS_Reserve(sp->wrk->ws, 0);
+	outb = out = sp->wrk->ws->f;
+
+	if (outlen < 4) {
+		WS_Release(sp->wrk->ws, 0);
+		return NULL;
+	}
+
+	if (inlen == 0) {
+		*out = '\0';
+		WS_Release(sp->wrk->ws, 1);
+		return outb;
+	}
+
+	while (1) {
+
+		assert(inlen);
+		assert(outlen>3);
+		tmp[0] = (unsigned char) in[0];
+		tmp[1] = (unsigned char) in[1];
+		tmp[2] = (unsigned char) in[2];
+
+
+		*out++ = base64_chars[(tmp[0] >> 2) & 0x3f];
+
+		idx = (tmp[0] << 4);
+		if (inlen>1)
+			idx += (tmp[1] >> 4);
+		idx &= 0x3f;
+		*out++ = base64_chars[idx];
+
+		if (inlen>1) {
+			idx = (tmp[1] << 2);
+			if (inlen>2)
+				idx += tmp[2] >> 6;
+			idx &= 0x3f;
+
+			*out++ = base64_chars[idx];
+		} else {
+			*out++ = '=';
+		}
+
+		if (inlen>2) {
+			*out++ = base64_chars[tmp[2] & 0x3f];
+		} else {
+			*out++ = '=';
+		}
+
+		if (outlen<5) {
+			WS_Release(sp->wrk->ws, 0);
+			return NULL;
+		}
+		outlen -= 4;
+
+		if (inlen<4)
+			break;
+
+		inlen -= 3;
+		in += 3;
+	}
+	assert(outlen);
+
+	outlen--;
+	*out = '\0';
+
+	WS_Release(sp->wrk->ws, outlenorig-outlen);
+
+	return outb;
+}
+
+unsigned char *
+hmac_sha1(struct sess *sp, const char *key, const char *msg, int *outlen)
 {
 	MHASH td;
 	hashid hash = MHASH_SHA1;
@@ -65,15 +150,15 @@ hmac_sha1(struct sess *sp, const char *key, const char *msg)
 	mhash(td, msg, strlen(msg));
 	mhash_hmac_deinit(td,mac);
 
-	data = WS_Alloc(sp->ws, blocksize+1); // '\0'
+	data = WS_Alloc(sp->ws, blocksize);
 	if (data == NULL)
 		return NULL;
 
 	for (int j = 0; j < blocksize; j++) {
 		data[j] = (unsigned char)mac[j];
 	}
-	data[blocksize+1] = '\0';
 
+	*outlen = blocksize;
 	return data;
 }
 
@@ -99,7 +184,6 @@ get_header_name(struct sess *sp, const struct http *hp, unsigned u) {
 	for(c = hdr.b, l = 0; c < hdr.e; c++, l++) {
 		if(c[0] == ':') {
 			p = WS_Alloc(sp->ws, l + 3); 		/* Allocate memory ( l + \0xx + ':' ) */
-			//syslog(LOG_INFO, "get_header_name| header %c%.*s:", l + 1, l, hdr.b);
 			sprintf(p, "%c%.*s:", l + 1, l, hdr.b);
 			return p;
 		}
@@ -130,19 +214,16 @@ get_headers(struct sess *sp, const struct http *hp) {
 	// release it when done instead of trying to calculate how much
 	// we need to reserve.
 	r = WS_Reserve(sp->wrk->ws, 0);
-	p = sp->wrk->ws->f;
-	pptr = p;
+	p = pptr = sp->wrk->ws->f;
 
 	for (i = 0; i < h; i++) {
-		if (strcmp(hdrl[i], "\005date:") == 0 ||
-			strcmp(hdrl[i], "\005host:") == 0 ||
-			strncmp(hdrl[i]+1, "x-sbr", 5) == 0) {
+		if (strcasecmp(hdrl[i], "\005date:") == 0 ||
+			strcasecmp(hdrl[i], "\005host:") == 0 ||
+			strncasecmp(hdrl[i]+1, "x-sbr", 5) == 0) {
 			pptr += sprintf(pptr, "%s %s\n", hdrl[i] + 1 /* skip length prefix */, VRT_GetHdr(sp, HDR_REQ, hdrl[i]));
-			//syslog(LOG_INFO, "get_headers| header %d: %s = %s\n", i, hdrl[i], VRT_GetHdr(sp, HDR_REQ, hdrl[i]));
 		}
 	}
 
-	pptr++;
 	u = pptr - p;
 
 	/* Out of memory, run away!! */
@@ -172,9 +253,7 @@ get_body(struct sess *sp, char**body, int *ocl) {
 	*ocl = cl = strtoul(cl_ptr, NULL, 10);
 	if (cl <= 0) return -2;
 
-	//syslog(LOG_INFO, "get_body| pipeline length %d", Tlen(sp->htc->pipeline));
 	if(sp->htc->pipeline.b != NULL && Tlen(sp->htc->pipeline) == cl) {
-		//syslog(LOG_INFO, "get_body| complete buffer %s", sp->htc->pipeline.b);
 		*body = sp->htc->pipeline.b;
 	} else {
 		int rxbuf_size = Tlen(sp->htc->rxbuf);
@@ -202,7 +281,6 @@ get_body(struct sess *sp, char**body, int *ocl) {
 				buf_size = cl;
 			}
 
-			//syslog(LOG_INFO, "get_body| reading %u bytes into buffer", buf_size);
 			rsize = HTC_Read(sp->wrk, sp->htc, buf, buf_size);
 			if (rsize <= 0) {
 				return -3;
@@ -216,55 +294,40 @@ get_body(struct sess *sp, char**body, int *ocl) {
 
 		sp->htc->pipeline.b = *body;
 		sp->htc->pipeline.e = *body + *ocl;
-
-		//syslog(LOG_INFO, "get_body| complete buffer %s", *body);
 	}
 	return 1;
 }
 
 const char *
-vmod_sigstring(struct sess *sp, const char *method, const char *uri, const char *secret){
+vmod_signature(struct sess *sp, const char *method, const char *uri, const char *secret){
 
-	int cl, l, u;
+	int cl, l;
 	char *b;
 	char *body;
 
 	const char *h = get_headers(sp, sp->http);
+	int ret = get_body(sp, &body, &cl);
 
-	u = WS_Reserve(sp->wrk->ws, 0);
+	int u = WS_Reserve(sp->wrk->ws, 0);
 	b = sp->wrk->ws->f;
 
-	if(strcmp(method,"POST") == 1 || strcmp(method,"PUT") == 1) {
-		syslog(LOG_INFO, "Request has body %s", method);
-		int ret = get_body(sp, &body, &cl);
-		l = sprintf(b, "%s\n%s\n%s\n%s", method, uri, h, body);
+	if(ret == 1) {
+		l = sprintf(b, "%s\n%s\n%s%s", method, uri, h, body);
 	} else {
-		l = sprintf(b, "%s\n%s\n%s\n", method, uri, h);
+		l = sprintf(b, "%s\n%s\n%s", method, uri, h);
 	}
-
-	assert(strlen(b) == l);
 
 	if (l > u) {
 		WS_Release(sp->wrk->ws, 0);
 		return NULL;
 	}
 
-	WS_Release(sp->wrk->ws, l+1);
+	WS_Release(sp->wrk->ws, l);
 
-	syslog(LOG_INFO, "vmod_sigstring| secret %s", secret);
-	//syslog(LOG_INFO, "vmod_sigstring| method %s", method);
-	//syslog(LOG_INFO, "vmod_sigstring| uri %s", uri);
-	//syslog(LOG_INFO, "vmod_sigstring| headers %s", h);
+	int dlen;
+	char *d = hmac_sha1(sp, secret, b, &dlen);
 
-	//if ( method == "POST" || method == "PUT" )
-    //	syslog(LOG_INFO, "vmod_sigstring| body %s", body);
-
-	syslog(LOG_INFO, "vmod_sigstring| string_to_sign (%d) %.*s", l, l, b);
-
-	//syslog(LOG_INFO, "vmod_sigstring| hmac-sha1 %s", d);
-
-
-	return hmac_sha1(sp, secret, b);
+	return base64_encode(sp, d, dlen);
 }
 
 int
