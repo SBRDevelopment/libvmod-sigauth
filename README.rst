@@ -75,7 +75,14 @@ INSTALLATION
 Installation requires the Varnish source tree (only the source matching the
 binary installation).
 
-This installation also requires mhash
+This installation also requires mhash.
+
+On Debian/Centos distributions
+`sudo yum install libmcrypt-devel mhash-devel`
+
+On Ubuntu distributions
+`sudo apt-get instsall libmhash-dev`
+
 
 1. `./autogen.sh`  (for git-installation)
 2. `./configure VARNISHSRC=/path/to/your/varnish/source/varnish-cache [VMODDIR=DIR]`
