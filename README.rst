@@ -97,9 +97,9 @@ ACKNOWLEDGEMENTS
 
 Parts of this module were copied or revied from the following vmods.
 
-`https://github.com/varnish/libvmod-digest`  
-`https://github.com/varnish/libvmod-header`
-`https://github.com/xcir/libvmod-parsereq`
+* `https://github.com/varnish/libvmod-digest`
+* `https://github.com/varnish/libvmod-header`
+* `https://github.com/xcir/libvmod-parsereq`
 
 I'd like to thank the authors of those projects for providing good examples of how to write a vmod.
 
