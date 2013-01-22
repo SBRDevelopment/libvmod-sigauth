@@ -100,7 +100,7 @@ Varnish installation).
 ACKNOWLEDGEMENTS
 ================
 
-Parts of this module were copied or revied from the following vmods.
+Parts of this module were copied or revised from the following vmods.
 
 * `https://github.com/varnish/libvmod-digest`
 * `https://github.com/varnish/libvmod-header`
