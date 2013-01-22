@@ -115,3 +115,9 @@ This document is licensed under the same license as the
 libvmod-sigauth project. See LICENSE for details.
 
 * Copyright (c) 2013 Brian Wight
+
+File layout and configuration based on libvmod-example
+
+* Copyright (c) 2011 Varnish Software AS
+
+
