@@ -27,7 +27,7 @@ SYNOPSIS
 DESCRIPTION
 ===========
 
-Validates the signature of an incomming request. The idea behind this module is to validate the signature of a request
+Validates the signature of an incoming request. The idea behind this module is to validate the signature of a request
 without having to pass the request to a backend server. Once the signature has been verified varnish can cache requests
 for individual accounts.
 
@@ -45,7 +45,7 @@ Prototype
 Return value
         STRING
 Description
-        Returns the base64 encoded hmac_sha1 of the incomming request.
+        Returns the base64 encoded hmac_sha1 of the incoming request.
 Example
         ``set req.http.signature = sigauth.signature(req.request, req.url, "izY8UUW9rvumTICDWERMOvtrzlc4m2T0/QkSRHVY");``
 
@@ -59,13 +59,28 @@ Return value
 Description
         Returns 1 if the current time is greater than or equal to the expiration time.
 Example
-
 ::
 
         if(req.url ~ "^.*Expires=([\d^&]+)(.*)+$") {
             if(sigauth.isexpired(regsub(req.url, ".*Expires=([\d]+)", "\1")) == 1) {
-                return (error);
+                return (error);s
             }
+        }
+
+init
+----
+
+Prototype
+        init(STRING prefix)
+Return value
+        VOID
+Description
+        Overwrites the default header prefix of x-auth to a preset header that should be included in the canonicalized sting. 
+Example
+::
+
+		sub vcl_init {
+            sigauth.init("x-header");
         }
 
 

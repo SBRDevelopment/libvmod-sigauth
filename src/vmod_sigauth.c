@@ -20,6 +20,7 @@
 #include "config.h"
 
 
+char *header_prefix;
 const char *base64_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
                            "abcdefghijklmnopqrstuvwxyz"
                            "0123456789+/";
@@ -27,6 +28,8 @@ const char *base64_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 int
 init_function(struct vmod_priv *priv, const struct VCL_conf *conf)
 {
+	header_prefix = calloc(32, 1);
+	memcpy(header_prefix, "x-auth", 7);
 	return (0);
 }
 
@@ -219,7 +222,7 @@ get_headers(struct sess *sp, const struct http *hp) {
 	for (i = 0; i < h; i++) {
 		if (strcasecmp(hdrl[i], "\005date:") == 0 ||
 			strcasecmp(hdrl[i], "\005host:") == 0 ||
-			strncasecmp(hdrl[i]+1, "x-sbr", 5) == 0) {
+			strncasecmp(hdrl[i]+1, header_prefix, strlen(header_prefix)) == 0) {
 			pptr += sprintf(pptr, "%s %s\n", hdrl[i] + 1 /* skip length prefix */, VRT_GetHdr(sp, HDR_REQ, hdrl[i]));
 		}
 	}
@@ -298,6 +301,18 @@ get_body(struct sess *sp, char**body, int *ocl) {
 	return 1;
 }
 
+void
+vmod_init(struct sess *sp, struct vmod_priv *priv, const char *prefix) {
+
+	assert(prefix);
+	assert(strlen(prefix) < 32);
+
+	memset(header_prefix, 0, 32);
+	sprintf(header_prefix, "%s", prefix);
+
+	syslog(LOG_INFO, "vmod_init| header_prefix %s", header_prefix);
+}
+
 const char *
 vmod_signature(struct sess *sp, const char *method, const char *uri, const char *secret){
 
@@ -323,6 +338,8 @@ vmod_signature(struct sess *sp, const char *method, const char *uri, const char 
 	}
 
 	WS_Release(sp->wrk->ws, l);
+
+	syslog(LOG_INFO, "vmod_signature| %s", b);
 
 	int dlen;
 	char *d = hmac_sha1(sp, secret, b, &dlen);

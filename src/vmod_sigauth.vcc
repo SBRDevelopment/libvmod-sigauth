@@ -1,4 +1,5 @@
 Module sigauth
 Init init_function
+Function VOID init(PRIV_VCL, STRING)
 Function STRING signature(STRING, STRING, STRING)
 Function INT isexpired(STRING)

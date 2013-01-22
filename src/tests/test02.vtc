@@ -20,7 +20,7 @@ varnish v1 -vcl+backend {
 } -start
 
 client c1 {
-	txreq -req "DELETE" -url "/api/v1.1/account/100.xml" \
+	txreq -req DELETE -url "/api/v1.1/account/100.xml" \
 		-hdr "host: api.example.com" \
 		-hdr "date: Monday, 21 January 2013 15:52:29 GMT"
     rxresp

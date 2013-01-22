@@ -1,5 +1,4 @@
-varnishtest "Test sigauth hmac-method"
-
+varnishtest "Test overwrite custom headers"
 		
 server s1 {
        rxreq
@@ -10,7 +9,11 @@ varnish v1 -vcl+backend {
 		
         import sigauth from "${vmod_topbuild}/src/.libs/libvmod_sigauth.so";
 
-		sub vcl_recv {
+		sub vcl_init {
+			sigauth.init("x-he");
+		}
+
+		sub vcl_recv {			
 			set req.http.signature = sigauth.signature(req.request, req.url, "uFehWXvcM7mf==c8ZhOe3Fz+6d+zyQ2ja4A3De1N");
 		}
 		
@@ -20,12 +23,14 @@ varnish v1 -vcl+backend {
 } -start
 
 client c1 {
-	txreq -req GET -url "/api/v1.1/account.xml" \
+	txreq -req "GET" -url "/api/v1.1/account.xml" \
 		-hdr "Host: api.example.com" \
-		-hdr "Date: Monday, 21 January 2013 15:52:29 GMT"
+		-hdr "Date: Monday, 21 January 2013 15:52:29 GMT" \
+		-hdr "X-Auth: 12345" \
+		-hdr "X-he: 1234567"
 		
     rxresp
-	expect resp.http.signature == "EyYh6iSamvd4BT/oAATBUcHv+TI="
+	expect resp.http.signature == "CC+7h9e9FP7t5Ua6ZUMwmZr3+EU="
 }
 
 client c1 -run
