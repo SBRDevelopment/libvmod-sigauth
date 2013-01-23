@@ -19,6 +19,10 @@
 #include "vcc_if.h"
 #include "config.h"
 
+#define HASH MHASH_SHA1
+#define MACLEN mhash_get_hash_pblock(HASH)
+#define BLOCKSIZE mhash_get_block_size(HASH)
+#define HEADER_PREFIX_SIZE 32
 
 char *header_prefix;
 const char *base64_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -28,20 +32,19 @@ const char *base64_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 int
 init_function(struct vmod_priv *priv, const struct VCL_conf *conf)
 {
-	header_prefix = calloc(32, 1);
+	header_prefix = calloc(HEADER_PREFIX_SIZE, 1);
 	memcpy(header_prefix, "x-auth", 7);
 	return (0);
 }
 
 int
-sizeofhdr(const struct http *hp) {
+hdrsize(const struct http *hp) {
 	CHECK_OBJ_NOTNULL(hp, HTTP_MAGIC);
 	return hp->nhd - HTTP_HDR_FIRST;
 }
 
-
 char *
-tolowerhdr(char *h) {
+hdrtolower(char *h) {
 	int i;
 	for(i = 0; i < strlen(h); i++) {
 		*(h+i) = tolower(*(h+i));
@@ -50,21 +53,21 @@ tolowerhdr(char *h) {
 }
 
 int
-comparehdr (const void *a, const void *b)
+hdrcompare (const void *a, const void *b)
 {
     /* Offset the headers to ignore the first length byte and compare the names */
-    return strcasecmp (*(const char **) a + 1, *(const char **) b + 1);
+    return strcasecmp (*(const char **)a + 1, *(const char **)b + 1);
 }
 
 const char *
 base64_encode(struct sess *sp, const unsigned char *in, size_t inlen) {
 
 	unsigned outlenorig, outlen;
-	char *out, *outb;
 	unsigned char tmp[3], idx;
+	char *out, *outb;
 
-	CHECK_OBJ_NOTNULL(sp, SESS_MAGIC);
 	AN(in);
+	CHECK_OBJ_NOTNULL(sp, SESS_MAGIC);
 
 	outlen = outlenorig = WS_Reserve(sp->wrk->ws, 0);
 	outb = out = sp->wrk->ws->f;
@@ -137,31 +140,26 @@ base64_encode(struct sess *sp, const unsigned char *in, size_t inlen) {
 }
 
 unsigned char *
-hmac_sha1(struct sess *sp, const char *key, const char *msg, int *outlen)
+hmac_sha1(struct sess *sp, const char *key, const char *msg)
 {
 	MHASH td;
-	hashid hash = MHASH_SHA1;
-	size_t maclen = mhash_get_hash_pblock(hash);
-	size_t blocksize = mhash_get_block_size(hash);
-	unsigned char mac[blocksize];
-	unsigned char *data;
+	unsigned char *data, mac[BLOCKSIZE];
 
 	AN(key);
 	CHECK_OBJ_NOTNULL(sp, SESS_MAGIC);
 
-	td = mhash_hmac_init(hash, (void *)key, strlen(key), mhash_get_hash_pblock(hash));
+	td = mhash_hmac_init(HASH, (void *)key, strlen(key), MACLEN);
 	mhash(td, msg, strlen(msg));
 	mhash_hmac_deinit(td,mac);
 
-	data = WS_Alloc(sp->ws, blocksize);
+	data = WS_Alloc(sp->ws, BLOCKSIZE);
 	if (data == NULL)
 		return NULL;
 
-	for (int j = 0; j < blocksize; j++) {
+	for (int j = 0; j < BLOCKSIZE; j++) {
 		data[j] = (unsigned char)mac[j];
 	}
 
-	*outlen = blocksize;
 	return data;
 }
 
@@ -169,13 +167,13 @@ char *
 get_header_name(struct sess *sp, const struct http *hp, unsigned u) {
 
 	char *c, *p;
-	size_t l;
+	int i;
 	txt hdr;
 
 	CHECK_OBJ_NOTNULL(sp, SESS_MAGIC);
 	CHECK_OBJ_NOTNULL(hp, HTTP_MAGIC);
-	Tcheck(hp->hd[u]);
 
+	Tcheck(hp->hd[u]);
 	hdr = hp->hd[u];
 
 	if (hdr.b == NULL)
@@ -184,10 +182,10 @@ get_header_name(struct sess *sp, const struct http *hp, unsigned u) {
 	// The ':' character indicates the end of the header name
 	// so loop through each character in the string and then
 	// add the header name to the buffer.
-	for(c = hdr.b, l = 0; c < hdr.e; c++, l++) {
+	for(c = hdr.b, i = 0; c < hdr.e; c++, i++) {
 		if(c[0] == ':') {
-			p = WS_Alloc(sp->ws, l + 3); 		/* Allocate memory ( l + \0xx + ':' ) */
-			sprintf(p, "%c%.*s:", l + 1, l, hdr.b);
+			p = WS_Alloc(sp->ws, i + 3); 		/* Allocate memory ( l + \0xx + ':' ) */
+			sprintf(p, "%c%.*s:", i + 1, i, hdr.b);
 			return p;
 		}
 	}
@@ -195,31 +193,27 @@ get_header_name(struct sess *sp, const struct http *hp, unsigned u) {
 	return NULL;
 }
 
-const char *
+char *
 get_headers(struct sess *sp, const struct http *hp) {
 
-	unsigned u, r, l, j, i;
-	unsigned h = sizeofhdr(hp);
-	const char *hdrl[h];
-	const char *p;
-	const char *pptr;
+	int HEADER_SIZE = hdrsize(hp);
+	char *hdrl[HEADER_SIZE], *p, *pptr;
+	int j, i;
 
 	CHECK_OBJ_NOTNULL(sp, SESS_MAGIC);
 	CHECK_OBJ_NOTNULL(hp, HTTP_MAGIC);
 
-	for (l = HTTP_HDR_FIRST, j = 0; l < hp->nhd; l++, j++) {
-		hdrl[j] = tolowerhdr(get_header_name(sp, hp, l));
+	for (i = HTTP_HDR_FIRST, j = 0; i < hp->nhd; i++, j++) {
+		hdrl[j] = hdrtolower(get_header_name(sp, hp, i));
 	}
 
-	qsort (hdrl, h, sizeof(const char *), comparehdr);
+	// Sort the headers case insensitive
+	qsort(hdrl, HEADER_SIZE, sizeof(const char *), hdrcompare);
 
-	// Should be faster to just allocate all the memory and
-	// release it when done instead of trying to calculate how much
-	// we need to reserve.
-	r = WS_Reserve(sp->wrk->ws, 0);
+	unsigned r = WS_Reserve(sp->wrk->ws, 0);
 	p = pptr = sp->wrk->ws->f;
 
-	for (i = 0; i < h; i++) {
+	for (i = 0; i < HEADER_SIZE; i++) {
 		if (strcasecmp(hdrl[i], "\005date:") == 0 ||
 			strcasecmp(hdrl[i], "\005host:") == 0 ||
 			strncasecmp(hdrl[i]+1, header_prefix, strlen(header_prefix)) == 0) {
@@ -227,26 +221,23 @@ get_headers(struct sess *sp, const struct http *hp) {
 		}
 	}
 
-	u = pptr - p;
-
 	/* Out of memory, run away!! */
-	if (u > r) {
+	if ((pptr - p) > r) {
 		WS_Release(sp->wrk->ws, 0);
 		return NULL;
 	}
 
-	WS_Release(sp->wrk->ws, u);
+	WS_Release(sp->wrk->ws, (pptr - p));
 
 	return p;
 }
 
 int
-get_body(struct sess *sp, char**body, int *ocl) {
+get_body(struct sess *sp, char**body, unsigned long *ocl) {
 
-	char *cl_ptr;
-	unsigned long cl;
 	int re, buf_size, rsize;
-	char buf[2048];
+	char *cl_ptr, buf[2048];
+	unsigned long cl;
 
 	CHECK_OBJ_NOTNULL(sp, SESS_MAGIC);
 
@@ -305,20 +296,18 @@ void
 vmod_init(struct sess *sp, struct vmod_priv *priv, const char *prefix) {
 
 	assert(prefix);
-	assert(strlen(prefix) < 32);
+	assert(strlen(prefix) < HEADER_PREFIX_SIZE);
 
-	memset(header_prefix, 0, 32);
+	memset(header_prefix, 0, HEADER_PREFIX_SIZE);
 	sprintf(header_prefix, "%s", prefix);
-
-	syslog(LOG_INFO, "vmod_init| header_prefix %s", header_prefix);
 }
 
 const char *
 vmod_signature(struct sess *sp, const char *method, const char *uri, const char *secret){
 
-	int cl, l;
-	char *b;
-	char *body;
+	int l;
+	char *b, *body;
+	unsigned long cl;
 
 	const char *h = get_headers(sp, sp->http);
 	int ret = get_body(sp, &body, &cl);
@@ -339,12 +328,9 @@ vmod_signature(struct sess *sp, const char *method, const char *uri, const char 
 
 	WS_Release(sp->wrk->ws, l);
 
-	syslog(LOG_INFO, "vmod_signature| %s", b);
+	char *d = hmac_sha1(sp, secret, b);
 
-	int dlen;
-	char *d = hmac_sha1(sp, secret, b, &dlen);
-
-	return base64_encode(sp, d, dlen);
+	return base64_encode(sp, d, BLOCKSIZE);
 }
 
 int
