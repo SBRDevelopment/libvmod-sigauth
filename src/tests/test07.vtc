@@ -1,0 +1,39 @@
+varnishtest "Test sigauth expires"
+
+		
+server s1 {
+       rxreq
+       txresp
+} -start
+
+varnish v1 -vcl+backend {
+		
+        import sigauth from "${vmod_topbuild}/src/.libs/libvmod_sigauth.so";
+
+		sub vcl_recv {
+			if(req.url ~ "^.*Expires=([\d^&]+)(.*)+$") {
+				if(sigauth.isexpired(regsub(req.url, ".*Expires=([\d]+)", "\1")) == 1) {
+					set req.http.status = 401;
+					return (pass);
+				}
+			}
+			set req.http.status = 200;
+			return (pass);
+		}
+		
+		sub vcl_deliver {
+			set resp.http.status = req.http.status;
+		}
+		
+} -start
+
+client c1 {
+	txreq -req GET -url "/api/v1.1/account.xml?Expires=16727199545" \
+		-hdr "Host: api.example.com" \
+		-hdr "Date: Monday, 21 January 2013 15:52:29 GMT"
+		
+    rxresp
+	expect resp.http.status == 200
+	
+}
+client c1 -run
