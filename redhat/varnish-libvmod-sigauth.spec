@@ -40,4 +40,4 @@ rm -rf %{buildroot}
 %preun
 
 %changelog
-- Initial version.
+* Initial version.
