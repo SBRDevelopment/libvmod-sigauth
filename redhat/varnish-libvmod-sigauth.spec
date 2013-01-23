@@ -40,4 +40,5 @@ rm -rf %{buildroot}
 %preun
 
 %changelog
-* Initial version.
+* Wed Oct 03 2012 Lasse Karstensen <lasse@varnish-software.com> - 0.1-0.20120918
+- Initial version.
