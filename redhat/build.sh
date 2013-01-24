@@ -16,7 +16,7 @@ OPTIONS:
 EOF
 }
 
-RELEASE=`python bin/version`
+RELEASE=`python version`
 BASE_NAME=`basename $(git rev-parse --show-toplevel)`
 RPMDIR=`rpm --eval "%{_topdir}"`
 REPO_ROOT=/var/www/html/sbr
@@ -41,8 +41,9 @@ do
 	esac
 done
 
+export RELEASE=$RELEASE
 sh make-tarball.sh
-rpmbuild -ba varnish-${BASE_NAME}.spec --define  'build_release $RELEASE' 
+rpmbuild -ba varnish-${BASE_NAME}.spec
 
 if [ -n "$VERIFY" ];
 then

@@ -1,10 +1,11 @@
 %define varnish_src $HOME/varnish-3.0.3/
+%define vmod_release %(echo $RELEASE)
 %define vmod_dir /usr/lib64/varnish/vmods/
 
 Summary: varnish-libvmod-sigauth
 Name: varnish-libvmod-sigauth
 Version: 0.1
-Release: %{build_release}
+Release: %{vmod_release}
 License: BSD
 Group: System Environment/Daemons
 Source0: ./libvmod-sigauth.tar.gz
