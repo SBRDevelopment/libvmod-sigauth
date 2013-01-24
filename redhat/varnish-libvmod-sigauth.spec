@@ -1,11 +1,10 @@
-%define build_revision %(R=$(python version); echo $R)
 %define varnish_src $HOME/varnish-3.0.3/
 %define vmod_dir /usr/local/lib/varnish/vmods/
 
 Summary: varnish-libvmod-sigauth
 Name: varnish-libvmod-sigauth
 Version: 0.1
-Release: %{build_revision}
+Release: %{build_release}
 License: BSD
 Group: System Environment/Daemons
 Source0: ./libvmod-sigauth.tar.gz
