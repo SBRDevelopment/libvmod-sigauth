@@ -306,28 +306,39 @@ vmod_init(struct sess *sp, struct vmod_priv *priv, const char *prefix) {
 const char *
 vmod_signature(struct sess *sp, const char *method, const char *uri, const char *secret){
 
-	int l;
 	char *b, *body;
+	int i[3];
 	unsigned long cl;
 
 	const char *h = get_headers(sp, sp->http);
 	int ret = get_body(sp, &body, &cl);
 
-	int u = WS_Reserve(sp->wrk->ws, 0);
-	b = sp->wrk->ws->f;
+	if ( ret != 1 ) cl = 0;
+
+	i[0] = strlen(method);
+	i[1] = i[0] + strlen(uri);
+	i[2] = i[1] + strlen(h);
+
+	int l = i[0] + i[1] + i[2] + cl + 3;
+
+	b = WS_Alloc(sp->wrk->ws, l);
+	
+	syslog(LOG_INFO, "vmod_signature| %d, %d, %d, %d", i[0], i[1], i[2], cl);
+	syslog(LOG_INFO, "vmod_signature| length %d", l);
+
+	memcpy(b, method, i[0]);
+	memcpy(b + i[0], "\n", 1);
+	memcpy(b + 1 + i[0], uri, i[1]);
+	memcpy(b + 1 + i[1], "\n", 1);
+	memcpy(b + 2 + i[1], h, i[2]);
+	
+	syslog(LOG_INFO, "%s", b);
 
 	if(ret == 1) {
-		l = sprintf(b, "%s\n%s\n%s%.*s", method, uri, h, cl, body);
-	} else {
-		l = sprintf(b, "%s\n%s\n%s", method, uri, h);
+		memcpy(b + 2 + i[2], body, cl);
 	}
 
-	if (l > u) {
-		WS_Release(sp->wrk->ws, 0);
-		return NULL;
-	}
-
-	WS_Release(sp->wrk->ws, l);
+	memcpy(b + 2 + i[2] + cl, "\0", 1);
 
 	char *d = hmac_sha1(sp, secret, b);
 
