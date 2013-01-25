@@ -37,6 +37,13 @@ init_function(struct vmod_priv *priv, const struct VCL_conf *conf)
 	return (0);
 }
 
+void
+strapp(char *destination, char *src, int len, int *pos)
+{
+	memcpy(destination + *pos, src, len);
+	*pos += len;
+}
+
 int
 hdrsize(const struct http *hp) {
 	CHECK_OBJ_NOTNULL(hp, HTTP_MAGIC);
@@ -307,7 +314,7 @@ const char *
 vmod_signature(struct sess *sp, const char *method, const char *uri, const char *secret){
 
 	char *b, *body;
-	int i[3];
+	int pos;
 	unsigned long cl;
 
 	const char *h = get_headers(sp, sp->http);
@@ -315,31 +322,28 @@ vmod_signature(struct sess *sp, const char *method, const char *uri, const char 
 
 	if ( ret != 1 ) cl = 0;
 
-	i[0] = strlen(method);
-	i[1] = i[0] + strlen(uri);
-	i[2] = i[1] + strlen(h);
+	int l = strlen(method) + 1 + strlen(uri) + 1 + strlen(h) + cl;
 
-	int l = i[0] + i[1] + i[2] + cl + 3;
+	b = WS_Alloc(sp->wrk->ws, l + 1);
 
-	b = WS_Alloc(sp->wrk->ws, l);
-	
-	syslog(LOG_INFO, "vmod_signature| %d, %d, %d, %d", i[0], i[1], i[2], cl);
 	syslog(LOG_INFO, "vmod_signature| length %d", l);
 
-	memcpy(b, method, i[0]);
-	memcpy(b + i[0], "\n", 1);
-	memcpy(b + 1 + i[0], uri, i[1]);
-	memcpy(b + 1 + i[1], "\n", 1);
-	memcpy(b + 2 + i[1], h, i[2]);
+	strapp(b, method, strlen(method), &pos);
+	strapp(b, "\n", 1, &pos);
+	strapp(b, uri, strlen(uri), &pos);
+	strapp(b, "\n", 1, &pos);
+	strapp(b, h, strlen(h), &pos);
 	
 	syslog(LOG_INFO, "%s", b);
 
 	if(ret == 1) {
-		memcpy(b + 2 + i[2], body, cl);
+		strapp(b, body, cl, &pos);
 	}
 
-	memcpy(b + 2 + i[2] + cl, "\0", 1);
+	strapp(b, "\0", 1, &pos);
 
+	assert(pos == l + 1);
+	
 	char *d = hmac_sha1(sp, secret, b);
 
 	syslog(LOG_INFO, "vmod_signature| (%d) %s", l, b);
