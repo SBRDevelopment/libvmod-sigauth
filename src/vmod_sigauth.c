@@ -316,7 +316,7 @@ vmod_signature(struct sess *sp, const char *method, const char *uri, const char 
 	b = sp->wrk->ws->f;
 
 	if(ret == 1) {
-		l = sprintf(b, "%s\n%s\n%s%s", method, uri, h, body);
+		l = sprintf(b, "%s\n%s\n%s%.*s", method, uri, h, cl, body);
 	} else {
 		l = sprintf(b, "%s\n%s\n%s", method, uri, h);
 	}
