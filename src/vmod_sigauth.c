@@ -330,6 +330,8 @@ vmod_signature(struct sess *sp, const char *method, const char *uri, const char 
 
 	char *d = hmac_sha1(sp, secret, b);
 
+	syslog(LOG_INFO, "vmod_signature| %s", d);
+
 	return base64_encode(sp, d, BLOCKSIZE);
 }
 
