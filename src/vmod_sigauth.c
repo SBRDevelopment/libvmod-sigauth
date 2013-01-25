@@ -214,6 +214,7 @@ get_headers(struct sess *sp, const struct http *hp) {
 	p = pptr = sp->wrk->ws->f;
 
 	for (i = 0; i < HEADER_SIZE; i++) {
+		syslog(LOG_INFO, "%s %s\n", hdrl[i], VRT_GetHdr(sp, HDR_REQ, hdrl[i]));
 		if (strcasecmp(hdrl[i], "\005date:") == 0 ||
 			strcasecmp(hdrl[i], "\005host:") == 0 ||
 			strncasecmp(hdrl[i]+1, header_prefix, strlen(header_prefix)) == 0) {
@@ -330,7 +331,7 @@ vmod_signature(struct sess *sp, const char *method, const char *uri, const char 
 
 	char *d = hmac_sha1(sp, secret, b);
 
-	//syslog(LOG_INFO, "vmod_signature| (%d) %s", l, b);
+	syslog(LOG_INFO, "vmod_signature| (%d) %s", l, b);
 
 	return base64_encode(sp, d, BLOCKSIZE);
 }
