@@ -329,8 +329,6 @@ vmod_signature(struct sess *sp, const char *method, const char *uri, const char 
 		pos = sprintf(b, "%s\n%s\n%s", method, uri, h);
 	}
 
-	syslog(LOG_INFO, "%s", b);
-
 	assert(pos == l);
 	
 	char *d = hmac_sha1(sp, secret, b);
