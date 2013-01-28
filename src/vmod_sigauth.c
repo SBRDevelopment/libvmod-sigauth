@@ -166,8 +166,7 @@ hmac_sha1(struct sess *sp, const char *key, const char *msg)
 char *
 get_header_name(struct sess *sp, const struct http *hp, unsigned u) {
 
-	char *c, *p;
-	int i;
+	char *n, c;
 	txt hdr;
 
 	CHECK_OBJ_NOTNULL(sp, SESS_MAGIC);
@@ -182,11 +181,15 @@ get_header_name(struct sess *sp, const struct http *hp, unsigned u) {
 	// The ':' character indicates the end of the header name
 	// so loop through each character in the string and then
 	// add the header name to the buffer.
-	for(c = hdr.b, i = 0; c < hdr.e; c++, i++) {
-		if(c[0] == ':') {
-			p = WS_Alloc(sp->ws, i + 3); 		/* Allocate memory ( l + \0xx + ':' ) */
-			sprintf(p, "%c%.*s:", i + 1, i, hdr.b);
-			return p;
+	for(c = 0; hdr.b + c < hdr.e; c++) {
+		if(*(hdr.b + c) == ':') {
+			c++;
+
+			/* header length + char + \0 */
+			n = WS_Alloc(sp->ws, c + 2);
+			snprintf(n, c + 2, "%c%s", c, hdr.b);
+
+			return n;
 		}
 	}
 
@@ -217,7 +220,7 @@ get_headers(struct sess *sp, const struct http *hp) {
 		if (strcasecmp(hdrl[i], "\005date:") == 0 ||
 			strcasecmp(hdrl[i], "\005host:") == 0 ||
 			strncasecmp(hdrl[i]+1, header_prefix, strlen(header_prefix)) == 0) {
-			pptr += sprintf(pptr, "%s %s\n", hdrl[i] + 1 /* skip length prefix */, VRT_GetHdr(sp, HDR_REQ, hdrl[i]));
+			pptr += sprintf(pptr, "%s %s\n", hdrl[i] + 1, VRT_GetHdr(sp, HDR_REQ, hdrl[i]));
 		}
 	}
 
@@ -325,6 +328,8 @@ vmod_signature(struct sess *sp, const char *method, const char *uri, const char 
 	} else {
 		pos = sprintf(b, "%s\n%s\n%s", method, uri, h);
 	}
+
+	syslog(LOG_INFO, "%s", b);
 
 	assert(pos == l);
 	
