@@ -37,11 +37,12 @@ init_function(struct vmod_priv *priv, const struct VCL_conf *conf)
 	return (0);
 }
 
-void
-strapp(char *destination, char *src, int len, int *pos)
+int
+strapp(char *destination, const char *src, int len, int pos)
 {
-	memcpy(destination + *pos, src, len);
-	*pos += len;
+	syslog(LOG_INFO, "strapp| %d %d %.*s", len, pos + len, len, src);
+	memcpy(destination + pos, src, len);
+	return len;
 }
 
 int
@@ -230,12 +231,12 @@ get_headers(struct sess *sp, const struct http *hp) {
 	}
 
 	/* Out of memory, run away!! */
-	if ((pptr - p) > r) {
+	if ((pptr - p) + 1 > r) {
 		WS_Release(sp->wrk->ws, 0);
 		return NULL;
 	}
 
-	WS_Release(sp->wrk->ws, (pptr - p));
+	WS_Release(sp->wrk->ws, (pptr - p) + 1);
 
 	return p;
 }
@@ -328,21 +329,16 @@ vmod_signature(struct sess *sp, const char *method, const char *uri, const char 
 
 	syslog(LOG_INFO, "vmod_signature| length %d", l);
 
-	strapp(b, method, strlen(method), &pos);
-	strapp(b, "\n", 1, &pos);
-	strapp(b, uri, strlen(uri), &pos);
-	strapp(b, "\n", 1, &pos);
-	strapp(b, h, strlen(h), &pos);
-	
-	syslog(LOG_INFO, "%s", b);
-
 	if(ret == 1) {
-		strapp(b, body, cl, &pos);
+		pos = sprintf(b, "%s\n%s\n%s%.*s",method, uri, h, cl, body);
+	} else {
+		pos = sprintf(b, "%s\n%s\n%s", method, uri, h);
 	}
 
-	strapp(b, "\0", 1, &pos);
+	syslog(LOG_INFO, "vmod_signature| %d == %d", pos, l+1);
+	syslog(LOG_INFO, "vmod_signature| %s", b);
 
-	assert(pos == l + 1);
+	assert(pos == l);
 	
 	char *d = hmac_sha1(sp, secret, b);
 
