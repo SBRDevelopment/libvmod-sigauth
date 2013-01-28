@@ -38,14 +38,6 @@ init_function(struct vmod_priv *priv, const struct VCL_conf *conf)
 }
 
 int
-strapp(char *destination, const char *src, int len, int pos)
-{
-	syslog(LOG_INFO, "strapp| %d %d %.*s", len, pos + len, len, src);
-	memcpy(destination + pos, src, len);
-	return len;
-}
-
-int
 hdrsize(const struct http *hp) {
 	CHECK_OBJ_NOTNULL(hp, HTTP_MAGIC);
 	return hp->nhd - HTTP_HDR_FIRST;
@@ -222,7 +214,6 @@ get_headers(struct sess *sp, const struct http *hp) {
 	p = pptr = sp->wrk->ws->f;
 
 	for (i = 0; i < HEADER_SIZE; i++) {
-		syslog(LOG_INFO, "%s %s\n", hdrl[i], VRT_GetHdr(sp, HDR_REQ, hdrl[i]));
 		if (strcasecmp(hdrl[i], "\005date:") == 0 ||
 			strcasecmp(hdrl[i], "\005host:") == 0 ||
 			strncasecmp(hdrl[i]+1, header_prefix, strlen(header_prefix)) == 0) {
@@ -321,13 +312,13 @@ vmod_signature(struct sess *sp, const char *method, const char *uri, const char 
 	const char *h = get_headers(sp, sp->http);
 	int ret = get_body(sp, &body, &cl);
 
+	// If there's no body make sure the body length is 0
 	if ( ret != 1 ) cl = 0;
 
+	/* length = method + \n + uri + \n + headers + body */
 	int l = strlen(method) + 1 + strlen(uri) + 1 + strlen(h) + cl;
 
 	b = WS_Alloc(sp->wrk->ws, l + 1);
-
-	syslog(LOG_INFO, "vmod_signature| length %d", l);
 
 	if(ret == 1) {
 		pos = sprintf(b, "%s\n%s\n%s%.*s",method, uri, h, cl, body);
@@ -335,14 +326,9 @@ vmod_signature(struct sess *sp, const char *method, const char *uri, const char 
 		pos = sprintf(b, "%s\n%s\n%s", method, uri, h);
 	}
 
-	syslog(LOG_INFO, "vmod_signature| %d == %d", pos, l+1);
-	syslog(LOG_INFO, "vmod_signature| %s", b);
-
 	assert(pos == l);
 	
 	char *d = hmac_sha1(sp, secret, b);
-
-	syslog(LOG_INFO, "vmod_signature| (%d) %s", l, b);
 
 	return base64_encode(sp, d, BLOCKSIZE);
 }
